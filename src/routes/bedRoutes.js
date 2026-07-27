@@ -1,0 +1,137 @@
+import express from "express";
+import prisma from "../utils/prisma.js";
+
+import { protect } from "../middleware/authMiddleware.js";
+import { authorize } from "../middleware/roleMiddleware.js";
+import { authorizePermission }
+from "../middleware/permissionMiddleware.js";
+
+const router = express.Router();
+
+
+// CREATE BED
+router.post(
+  "/",
+  protect,
+  authorize("ADMIN"),
+  async (req, res) => {
+
+    try {
+
+      const {
+        wardId,
+        bedNumber,
+        dailyRate
+      } = req.body;
+
+      const ward = await prisma.ward.findFirst({
+        where: {
+          id: wardId,
+          hospitalId: req.user.hospitalId
+        }
+      });
+
+      if (!ward) {
+        return res.status(404).json({
+          error: "Ward not found"
+        });
+      }
+
+      const bed = await prisma.bed.create({
+
+        data: {
+          bedNumber,
+          wardId,
+          dailyRate
+        }
+      });
+
+      res.json(bed);
+
+    } catch (err) {
+
+      console.log(err);
+
+      res.status(500).json({
+        error: "Failed to create bed"
+      });
+
+    }
+  }
+);
+
+
+// GET ALL BEDS
+router.get(
+  "/",
+  protect,
+  async (req, res) => {
+
+    try {
+
+      const beds = await prisma.bed.findMany({
+
+        where: {
+          ward: {
+            hospitalId: req.user.hospitalId
+          }
+        },
+
+        include: {
+          ward: true
+        }
+      });
+
+      res.json(beds);
+
+    } catch (err) {
+
+      console.log(err);
+
+      res.status(500).json({
+        error: "Failed to fetch beds"
+      });
+
+    }
+  }
+);
+
+
+// AVAILABLE BEDS
+router.get(
+  "/available",
+  protect,
+  async (req, res) => {
+
+    try {
+
+      const beds = await prisma.bed.findMany({
+
+        where: {
+          status: "AVAILABLE",
+
+          ward: {
+            hospitalId: req.user.hospitalId
+          }
+        },
+
+        include: {
+          ward: true
+        }
+      });
+
+      res.json(beds);
+
+    } catch (err) {
+
+      console.log(err);
+
+      res.status(500).json({
+        error: "Failed to fetch available beds"
+      });
+
+    }
+  }
+);
+
+export default router;
