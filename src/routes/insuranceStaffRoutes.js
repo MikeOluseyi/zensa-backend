@@ -288,7 +288,7 @@ router.patch(
 router.post(
   "/platform/bootstrap-manager",
   protectPlatform,
-  authorizePlatformPermission("SUPER_ADMIN", "OPS"),
+  authorizePlatformPermission("CREATE_ORGANIZATION"),
   async (req, res) => {
 
     try {

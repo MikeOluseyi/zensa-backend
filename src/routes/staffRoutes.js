@@ -681,7 +681,7 @@ router.get(
 router.post(
   "/platform/bootstrap-admin",
   protectPlatform,
-  authorizePlatformPermission("SUPER_ADMIN", "OPS"),
+  authorizePlatformPermission("CREATE_ORGANIZATION"),
   async (req, res) => {
 
     try {
