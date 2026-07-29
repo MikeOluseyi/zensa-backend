@@ -1,7 +1,7 @@
 import express from "express";
 import prisma from "../utils/prisma.js";
 import { protect } from "../middleware/authMiddleware.js";
-import { protectPlatform, authorizePlatform } from "../middleware/platformAuthMiddleware.js";
+import { protectPlatform, authorizePlatformPermission } from "../middleware/platformAuthMiddleware.js";
 
 const router = express.Router();
 
@@ -9,7 +9,7 @@ const router = express.Router();
 router.post(
   "/",
   protectPlatform,
-  authorizePlatform("SUPER_ADMIN", "OPS"),
+  authorizePlatformPermission("CREATE_INSURANCE_PROVIDER"),
   async (req, res) => {
     try {
       const { organizationId, claimsEmail, claimsPortalUrl, integrationMode } = req.body;
@@ -66,5 +66,59 @@ router.get("/", protect, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch insurance providers" });
   }
 });
+
+// insuranceProviderRoutes.js — add below the existing routes
+
+// QUICK-ADD EXTERNAL INSURER (hospital-facing — for insurers with no Zensa presence)
+router.post(
+  "/quick-add",
+  protect,
+  async (req, res) => {
+
+    try {
+
+      const { name, claimsEmail, claimsPortalUrl } = req.body;
+
+      if (!name || !name.trim()) {
+        return res.status(400).json({ error: "Insurer name is required." });
+      }
+
+      const code =
+        name.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "-").slice(0, 30) +
+        "-" + Date.now().toString(36).toUpperCase();
+
+      const provider = await prisma.$transaction(async (tx) => {
+
+        const organization = await tx.organization.create({
+          data: {
+            name: name.trim(),
+            code,
+            email: claimsEmail || null
+          }
+        });
+
+        return tx.insuranceProvider.create({
+          data: {
+            organizationId: organization.id,
+            claimsEmail: claimsEmail || null,
+            claimsPortalUrl: claimsPortalUrl || null,
+            integrationMode: "EXTERNAL"
+          },
+          include: { organization: true }
+        });
+
+      });
+
+      res.json(provider);
+
+    } catch (err) {
+
+      console.log(err);
+      res.status(500).json({ error: "Failed to add insurer" });
+
+    }
+
+  }
+);
 
 export default router;

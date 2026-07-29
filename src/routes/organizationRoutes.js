@@ -2,7 +2,7 @@ import express from "express";
 import prisma from "../utils/prisma.js";
 
 import { protect } from "../middleware/authMiddleware.js";
-import { protectPlatform, authorizePlatform } from "../middleware/platformAuthMiddleware.js";
+import { protectPlatform, authorizePlatformPermission } from "../middleware/platformAuthMiddleware.js";
 import { authorize } from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
@@ -11,8 +11,8 @@ const router = express.Router();
 // CREATE ORGANIZATION
 router.post(
   "/",
-  protect,
-  authorize("ADMIN"),
+  protectPlatform,
+  authorizePlatformPermission("CREATE_ORGANIZATION"),
   async (req, res) => {
 
     try {
@@ -55,11 +55,44 @@ router.post(
   }
 );
 
+// organizationRoutes.js — add below the existing POST / route
+// GET ALL ORGANIZATIONS (platform overview)
+router.get(
+  "/platform/all",
+  protectPlatform,
+  authorizePlatformPermission("VIEW_ORGANIZATIONS"),
+  async (req, res) => {
+
+    try {
+
+      const organizations = await prisma.organization.findMany({
+        include: {
+          hospitals: true,
+          wallet: true
+        },
+        orderBy: { createdAt: "desc" }
+      });
+
+      res.json(organizations);
+
+    } catch (err) {
+
+      console.log(err);
+
+      res.status(500).json({
+        error: "Failed to fetch organizations"
+      });
+
+    }
+
+  }
+);
+
 
 // GET MY ORGANIZATION
 router.get(
   "/",
-  protect,
+  protectPlatform,
 
   async (req, res) => {
 
@@ -117,7 +150,7 @@ router.get(
 router.patch(
   "/platform/:id",
   protectPlatform,
-  authorizePlatform("SUPER_ADMIN", "FINANCE"),
+  authorizePlatformPermission("EDIT_ORGANIZATION"),
   async (req, res) => {
 
     try {

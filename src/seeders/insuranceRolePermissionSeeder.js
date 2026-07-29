@@ -16,6 +16,7 @@ async function seedInsuranceRolePermissions() {
     // MANAGER
     // ==========================
 
+    // AFTER
     {
       role: "MANAGER",
 
@@ -31,7 +32,8 @@ async function seedInsuranceRolePermissions() {
         "REJECT_AUTH_REQUESTS",
         "VIEW_REPORTS",
         "VIEW_FINANCE",
-        "MARK_CLAIM_PAID"
+        "MARK_CLAIM_PAID",
+        "MANAGE_PLANS"
 
       ]
 

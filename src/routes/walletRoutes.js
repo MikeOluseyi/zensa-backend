@@ -2,7 +2,7 @@ import express from "express";
 import prisma from "../utils/prisma.js";
 
 import { protect } from "../middleware/authMiddleware.js";
-import { protectPlatform, authorizePlatform } from "../middleware/platformAuthMiddleware.js";
+import { protectPlatform, authorizePlatformPermission } from "../middleware/platformAuthMiddleware.js";
 import { topUpWallet } from "../utils/walletService.js";
 
 const router = express.Router();
@@ -111,7 +111,7 @@ router.get("/:id", protectPlatform, async (req, res) => {
 router.post(
   "/:id/top-up",
   protectPlatform,
-  authorizePlatform("SUPER_ADMIN", "FINANCE"),
+  authorizePlatformPermission("TOP_UP_WALLET"),
   async (req, res) => {
 
     try {

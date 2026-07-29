@@ -18,6 +18,8 @@ from "../utils/claimsEngine.js";
 
 import { buildClaimDTO } from "../utils/claimDelivery/buildClaimDTO.js";
 
+import { validateClaimRules } from "../utils/claimRulesEngine.js";
+
 import {
 
 protectInsurance
@@ -688,6 +690,41 @@ router.get(
       res.status(500).json({
         error: err.message || "Failed to fetch claim details"
       });
+
+    }
+
+  }
+);
+
+// insuranceClaimRoutes.js — add near /:id/timeline and /:id/full
+router.get(
+  "/:id/rules",
+  protectInsurance,
+  authorizeInsurancePermission("VIEW_CLAIMS"),
+  async (req, res) => {
+
+    try {
+
+      const claim = await prisma.claim.findFirst({
+        where: {
+          id: req.params.id,
+          insurance: { providerId: req.insuranceProvider.id }
+        }
+      });
+
+      if (!claim) {
+        return res.status(404).json({ error: "Claim not found" });
+      }
+
+      const validation = await validateClaimRules(claim.id);
+
+      res.json(validation);
+
+    } catch (err) {
+
+      console.log(err);
+
+      res.status(500).json({ error: err.message || "Failed to validate claim rules" });
 
     }
 

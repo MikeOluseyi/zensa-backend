@@ -49,17 +49,47 @@ export const protectPlatform = async (req, res, next) => {
   }
 };
 
-export const authorizePlatform = (...roles) => {
-  return (req, res, next) => {
+export const authorizePlatformPermission = (...requiredPermissions) => {
+  return async (req, res, next) => {
 
-    if (!req.platformUser) {
-      return res.status(401).json({ error: "Unauthorized" });
+    try {
+
+      if (!req.platformUser) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const rolePermissions =
+        await prisma.platformRolePermission.findMany({
+
+          where: {
+            role: req.platformUser.role
+          },
+
+          include: {
+            permission: true
+          }
+
+        });
+
+      const userPermissions =
+        rolePermissions.map(rp => rp.permission.action);
+
+      const hasPermission =
+        requiredPermissions.every(p => userPermissions.includes(p));
+
+      if (!hasPermission) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      next();
+
+    } catch (err) {
+
+      console.log(err);
+
+      res.status(500).json({ error: "Permission check failed" });
+
     }
 
-    if (!roles.includes(req.platformUser.role)) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-
-    next();
   };
 };

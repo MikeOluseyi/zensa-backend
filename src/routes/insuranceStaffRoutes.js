@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 import prisma from "../utils/prisma.js";
 
 import { protectInsurance, authorizeInsurance } from "../middleware/insuranceAuthMiddleware.js";
-
+import { protectPlatform, authorizePlatformPermission } from "../middleware/platformAuthMiddleware.js";
 const router = express.Router();
 
 /*
@@ -282,6 +282,70 @@ router.patch(
 
   }
 
+);
+
+// PLATFORM-ONLY: BOOTSTRAP FIRST MANAGER FOR AN INSURANCE PROVIDER
+router.post(
+  "/platform/bootstrap-manager",
+  protectPlatform,
+  authorizePlatformPermission("SUPER_ADMIN", "OPS"),
+  async (req, res) => {
+
+    try {
+
+      const {
+        insuranceProviderId,
+        firstName,
+        lastName,
+        email,
+        password
+      } = req.body;
+
+      const provider = await prisma.insuranceProvider.findUnique({
+        where: { id: insuranceProviderId }
+      });
+
+      if (!provider) {
+        return res.status(404).json({ error: "Insurance provider not found" });
+      }
+
+      const existing = await prisma.insuranceStaff.findUnique({
+        where: { email }
+      });
+
+      if (existing) {
+        return res.status(400).json({ error: "Email already exists" });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const staff = await prisma.insuranceStaff.create({
+
+        data: {
+          insuranceProviderId,
+          firstName,
+          lastName,
+          email,
+          password: hashedPassword,
+          role: "MANAGER",
+          isActive: true
+        }
+
+      });
+
+      res.json(staff);
+
+    } catch (err) {
+
+      console.log(err);
+
+      res.status(500).json({
+        error: "Failed to create insurance manager"
+      });
+
+    }
+
+  }
 );
 
 export default router;

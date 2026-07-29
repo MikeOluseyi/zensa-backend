@@ -46,10 +46,12 @@ import claimPaymentRoutes from "./routes/claimPaymentRoutes.js";
 import insuranceProviderRoutes from "./routes/insuranceProviderRoutes.js";
 import insuranceStaffRoutes from "./routes/insuranceStaffRoutes.js";
 import insuranceClaimRoutes from "./routes/insuranceClaimRoutes.js";
+import insurancePlanRoutes from "./routes/insurancePlanRoutes.js";
 import doctorNoteRoutes from "./routes/doctorNoteRoutes.js";
 import consultationsRoutes from "./routes/consultationRoutes.js";
 import platformStaffRoutes from "./routes/platformStaffRoutes.js";
 import walletRoutes from "./routes/walletRoutes.js";
+import rbacRoutes from "./routes/rbacRoutes.js";
 import { protect } from "./middleware/authMiddleware.js";
 import { authorize } from "./middleware/roleMiddleware.js";
 
@@ -101,12 +103,14 @@ app.use("/api/claim-Attachment", claimAttachmentRoutes);
 app.use("/api/claim-Message", claimMessageRoutes);
 app.use("/api/claim-Payment", claimPaymentRoutes);
 app.use("/api/insurance-Claim", insuranceClaimRoutes);
+app.use("/api/insurance-Plan", insurancePlanRoutes);
 app.use("/api/insurance-Provider", insuranceProviderRoutes);
 app.use("/api/insurance-staff", insuranceStaffRoutes);
 app.use("/api/doctor-notes", doctorNoteRoutes);
 app.use("/api/consultations", consultationsRoutes);
 app.use("/api/platform-staff", platformStaffRoutes);
 app.use("/api/wallets", walletRoutes);
+app.use("/api/rbac", rbacRoutes);
 
 app.get("/", (req, res) => {
   res.send("Zensa Backend Running");

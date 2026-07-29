@@ -1,7 +1,7 @@
 import express from "express";
 import prisma from "../utils/prisma.js";
 import { hospitalSafeSelect } from "../utils/selectors.js";
-import { protectPlatform, authorizePlatform } from "../middleware/platformAuthMiddleware.js";
+import { protectPlatform, authorizePlatformPermission } from "../middleware/platformAuthMiddleware.js";
 
 const router = express.Router();
 
@@ -10,7 +10,7 @@ const router = express.Router();
 router.post(
   "/",
   protectPlatform,
-  authorizePlatform("SUPER_ADMIN", "OPS"),
+  authorizePlatformPermission("CREATE_HOSPITAL"),
   async (req, res) => {
     try {
       const {

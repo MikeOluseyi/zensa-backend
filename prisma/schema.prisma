@@ -89,6 +89,7 @@ model Staff {
   photoUrl                     String?
   licenseNumber                String?
   specialization               String?
+  loginLogs                    StaffLoginLog[]
   admissionsCreated            Admission[]                @relation("AdmissionCreatedBy")
   attendingAdmissions          Admission[]                @relation("AdmissionDoctor")
   doctorAdmissionNotes         AdmissionDoctorNote[]
@@ -127,6 +128,16 @@ model Staff {
   stockMovements               StockMovement[]
   triagedVisits                Visit[]                    @relation("VisitTriagedBy")
   vitalRecords                 VitalRecord[]
+}
+
+model StaffLoginLog {
+  id         String   @id @default(cuid())
+  staffId    String
+  hospitalId String
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  staff      Staff    @relation(fields: [staffId], references: [id])
 }
 
 model MedicalRecord {
@@ -415,6 +426,7 @@ model InsuranceProvider {
   claimsPortalUrl       String?
   organizationId        String                 @unique
   integrationMode       IntegrationMode         @default(EXTERNAL)
+  plans                 InsurancePlan[]
   authorizationRequests AuthorizationRequest[]
   organization          Organization           @relation(fields: [organizationId], references: [id])
   staff                 InsuranceStaff[]
@@ -440,6 +452,22 @@ model InsuranceStaff {
   insuranceProvider       InsuranceProvider      @relation(fields: [insuranceProviderId], references: [id])
 }
 
+model InsurancePlan {
+  id                    String             @id @default(cuid())
+  providerId            String
+  name                  String
+  coveragePercent       Float
+  authorizationRequired Boolean            @default(false)
+  maxClaimAmount        Float?
+  active                Boolean            @default(true)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  provider              InsuranceProvider  @relation(fields: [providerId], references: [id])
+  enrollments           PatientInsurance[]
+
+  @@unique([providerId, name])
+}
+
 model PatientInsurance {
   id                    String                 @id @default(cuid())
   patientId             String
@@ -453,6 +481,8 @@ model PatientInsurance {
   coveragePercent       Float?
   endDate               DateTime?
   planName              String?
+  planId                String?
+  plan                  InsurancePlan? @relation(fields: [planId], references: [id])
   startDate             DateTime?
   authorizationRequests AuthorizationRequest[]
   claims                Claim[]
@@ -1003,6 +1033,25 @@ model ConsultationTransfer {
   toDepartment     Department  @relation("TransferToDepartment", fields: [toDepartmentId], references: [id])
   toDoctor         Staff?      @relation("TransferToDoctor", fields: [toDoctorId], references: [id])
   visit            Visit       @relation(fields: [visitId], references: [id])
+}
+
+model PlatformPermission {
+  id                        String                      @id @default(cuid())
+  name                      String
+  action                    String                      @unique
+  description               String?
+  createdAt                 DateTime                    @default(now())
+  platformRolePermissions   PlatformRolePermission[]
+}
+
+model PlatformRolePermission {
+  id           String              @id @default(cuid())
+  role         PlatformRole
+  permissionId String
+  createdAt    DateTime            @default(now())
+  permission   PlatformPermission  @relation(fields: [permissionId], references: [id])
+
+  @@unique([role, permissionId])
 }
 
 model PlatformStaff {

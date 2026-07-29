@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import prisma from "../utils/prisma.js";
 
-import { protectPlatform, authorizePlatform } from "../middleware/platformAuthMiddleware.js";
+import { protectPlatform, authorizePlatformPermission } from "../middleware/platformAuthMiddleware.js";
 
 const router = express.Router();
 
@@ -82,7 +82,7 @@ router.post(
 
   protectPlatform,
 
-  authorizePlatform("SUPER_ADMIN"),
+  authorizePlatformPermission("SUPER_ADMIN"),
 
   async (req, res) => {
 

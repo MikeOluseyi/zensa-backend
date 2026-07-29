@@ -22,21 +22,22 @@ router.post("/providers", protect, async (req, res) => {
   }
 });
 
+// AFTER
 router.post("/assign", protect, async (req, res) => {
   try {
+
     const patient = await prisma.patient.findFirst({
-  where: {
-    id: req.body.patientId,
-    hospitalId: req.user.hospitalId
-  }
-});
+      where: {
+        id: req.body.patientId,
+        hospitalId: req.user.hospitalId
+      }
+    });
 
-
-if (!patient) {
-  return res.status(404).json({
-    error: "Patient not found"
-  });
-}
+    if (!patient) {
+      return res.status(404).json({
+        error: "Patient not found"
+      });
+    }
 
     const {
       patientId,
@@ -44,6 +45,7 @@ if (!patient) {
       policyNumber,
       memberId,
       authorizationNumber,
+      planId,
       planName,
       coveragePercent,
       isPrimary,
@@ -52,18 +54,41 @@ if (!patient) {
       endDate
     } = req.body;
 
+    let resolvedPlanName = planName;
+    let resolvedCoveragePercent = coveragePercent != null ? Number(coveragePercent) : null;
+    let resolvedAuthRequired = authorizationRequired;
+
+    if (planId) {
+
+      const plan = await prisma.insurancePlan.findFirst({
+        where: { id: planId, providerId, active: true }
+      });
+
+      if (!plan) {
+        return res.status(400).json({ error: "Selected plan not found or inactive for this provider." });
+      }
+
+      // Snapshot the plan's terms onto this enrollment at assignment time —
+      // PatientInsurance keeps its own copy so later plan edits don't
+      // retroactively change what a patient already agreed to.
+      resolvedPlanName = plan.name;
+      resolvedCoveragePercent = plan.coveragePercent;
+      resolvedAuthRequired = plan.authorizationRequired;
+
+    }
+
     const insurance = await prisma.patientInsurance.create({
       data: {
         patientId,
         providerId,
+        planId: planId ?? null,
         policyNumber,
         memberId,
         authorizationNumber,
-        planName,
-        coveragePercent:
-          coveragePercent != null ? Number(coveragePercent) : null,
+        planName: resolvedPlanName,
+        coveragePercent: resolvedCoveragePercent,
         isPrimary,
-        authorizationRequired,
+        authorizationRequired: resolvedAuthRequired,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null
       }

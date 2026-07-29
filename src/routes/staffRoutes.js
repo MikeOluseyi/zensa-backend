@@ -5,8 +5,8 @@ import prisma from "../utils/prisma.js";
 import { staffSafeSelect } from "../utils/selectors.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { authorize } from "../middleware/roleMiddleware.js";
-import { authorizePermission }
-from "../middleware/permissionMiddleware.js";
+import { authorizePermission } from "../middleware/permissionMiddleware.js";
+import { protectPlatform, authorizePlatformPermission } from "../middleware/platformAuthMiddleware.js";
 
 const router = express.Router();
 
@@ -105,8 +105,15 @@ router.post("/login", async (req, res) => {
 
     if (!staff) {
 
-      return res.status(404).json({
-        error: "User not found"
+      return res.status(401).json({
+        error: "Invalid credentials"
+      });
+    }
+
+    if (!staff.isActive) {
+
+      return res.status(401).json({
+        error: "Invalid credentials"
       });
     }
 
@@ -118,16 +125,33 @@ router.post("/login", async (req, res) => {
     if (!valid) {
 
       return res.status(401).json({
-        error: "Invalid password"
+        error: "Invalid credentials"
       });
     }
+
+    await prisma.staffLoginLog.create({
+
+      data: {
+
+        staffId: staff.id,
+
+        hospitalId: staff.hospitalId,
+
+        ipAddress: req.ip,
+
+        userAgent: req.headers["user-agent"] ?? null
+
+      }
+
+    });
 
     const token = jwt.sign(
       {
         id: staff.id,
         role: staff.role,
         hospitalId: staff.hospitalId,
-        departmentId: staff.departmentId
+        departmentId: staff.departmentId,
+        scope: "hospital"
       },
       process.env.JWT_SECRET,
       {
@@ -589,6 +613,131 @@ router.patch(
 
         error: "Failed to remove department"
 
+      });
+
+    }
+
+  }
+);
+
+// LOGIN / SESSION HISTORY
+router.get(
+  "/login-logs",
+  protect,
+  authorize("ADMIN"),
+  async (req, res) => {
+
+    try {
+
+      const { staffId } = req.query;
+
+      const logs = await prisma.staffLoginLog.findMany({
+
+        where: {
+
+          hospitalId: req.user.hospitalId,
+
+          ...(staffId && { staffId })
+
+        },
+
+        include: {
+
+          staff: {
+            select: {
+              firstName: true,
+              lastName: true,
+              role: true,
+              email: true
+            }
+          }
+
+        },
+
+        orderBy: {
+          createdAt: "desc"
+        },
+
+        take: 200
+
+      });
+
+      res.json(logs);
+
+    } catch (err) {
+
+      console.log(err);
+
+      res.status(500).json({
+        error: "Failed to fetch login logs"
+      });
+
+    }
+
+  }
+);
+
+// PLATFORM-ONLY: BOOTSTRAP FIRST ADMIN FOR A HOSPITAL
+router.post(
+  "/platform/bootstrap-admin",
+  protectPlatform,
+  authorizePlatformPermission("SUPER_ADMIN", "OPS"),
+  async (req, res) => {
+
+    try {
+
+      const {
+        hospitalId,
+        firstName,
+        lastName,
+        email,
+        password,
+        phone
+      } = req.body;
+
+      const hospital = await prisma.hospital.findUnique({
+        where: { id: hospitalId }
+      });
+
+      if (!hospital) {
+        return res.status(404).json({ error: "Hospital not found" });
+      }
+
+      const existing = await prisma.staff.findUnique({
+        where: { email }
+      });
+
+      if (existing) {
+        return res.status(400).json({ error: "Email already exists" });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      const staff = await prisma.staff.create({
+
+        data: {
+          firstName,
+          lastName,
+          email,
+          password: hashedPassword,
+          role: "ADMIN",
+          phone,
+          hospitalId,
+          isActive: true
+        },
+
+        select: staffSafeSelect
+
+      });
+
+      res.json(staff);
+
+    } catch (err) {
+
+      console.log(err);
+
+      res.status(500).json({
+        error: "Failed to create hospital admin"
       });
 
     }

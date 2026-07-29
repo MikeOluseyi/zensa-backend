@@ -327,6 +327,12 @@ const permissions = [
   description: "Mark claim paid"
 },
 
+{
+  name: "Manage Plans",
+  action: "MANAGE_PLANS",
+  description: "Create and edit insurance plans"
+},
+
   // STAFF
   {
     name: "Create Staff",
