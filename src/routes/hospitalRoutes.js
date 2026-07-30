@@ -1,6 +1,7 @@
 import express from "express";
 import prisma from "../utils/prisma.js";
 import { hospitalSafeSelect } from "../utils/selectors.js";
+import { protect } from "../middleware/authMiddleware.js";
 import { protectPlatform, authorizePlatformPermission } from "../middleware/platformAuthMiddleware.js";
 
 const router = express.Router();
@@ -86,5 +87,46 @@ router.get("/", protectPlatform, async (req, res) => {
     });
   }
 });
+
+// GET MY HOSPITAL (for headers, receipts, printouts)
+router.get(
+  "/me",
+  protect,
+  async (req, res) => {
+
+    try {
+
+      const hospital = await prisma.hospital.findUnique({
+
+        where: {
+          id: req.user.hospitalId
+        },
+
+        select: {
+          id: true,
+          name: true,
+          address: true,
+          phone: true,
+          email: true
+        }
+
+      });
+
+      if (!hospital) {
+        return res.status(404).json({ error: "Hospital not found" });
+      }
+
+      res.json(hospital);
+
+    } catch (err) {
+
+      console.log(err);
+
+      res.status(500).json({ error: "Failed to fetch hospital info" });
+
+    }
+
+  }
+);
 
 export default router;

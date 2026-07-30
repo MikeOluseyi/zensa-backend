@@ -13,7 +13,17 @@ export async function validateClaimRules(claimId) {
 
         invoice: {
           include: {
-            visit: true
+            visit: {
+              include: {
+                medicalRecord: true
+              }
+            },
+            charges: {
+              include: {
+                service: { include: { cpt: true } },
+                hospitalService: { include: { service: { include: { cpt: true } } } }
+              }
+            }
           }
         }
 
@@ -179,6 +189,86 @@ export async function validateClaimRules(claimId) {
           ? `Claim is within the plan's ₦${effectiveMaxClaimAmount.toLocaleString()} limit.`
           : `Claim amount ₦${claim.totalAmount.toLocaleString()} exceeds the plan's ₦${effectiveMaxClaimAmount.toLocaleString()} limit.`
     });
+
+  }
+
+//----------------------------------
+  // 6. PLAN COVERAGE
+  //----------------------------------
+
+  if (plan) {
+
+    const coverageRules = await prisma.insurancePlanCoverageRule.findMany({
+      where: { planId: plan.id }
+    });
+
+    const cptRules = new Map(coverageRules.filter(r => r.cptCodeId).map(r => [r.cptCodeId, r]));
+    const icd10RuleForDiagnosis = claim.invoice.visit?.medicalRecord?.icd10Id
+      ? coverageRules.find(r => r.icd10Id === claim.invoice.visit.medicalRecord.icd10Id)
+      : null;
+
+    const uncoveredCharges = [];
+    const authRequiredCharges = [];
+
+    for (const charge of claim.invoice.charges) {
+
+      const cptId = charge.service?.cptId ?? charge.hospitalService?.service?.cptId;
+      const rule = cptId ? cptRules.get(cptId) : null;
+
+      const isCovered =
+        rule
+          ? rule.covered
+          : plan.scope === "GENERAL"; // no rule → covered under GENERAL, uncovered under CONDITION_SPECIFIC
+
+      if (!isCovered) {
+        uncoveredCharges.push(charge.description);
+      }
+
+      if (rule?.requiresAuthorization) {
+        authRequiredCharges.push(charge.description);
+      }
+
+    }
+
+    if (icd10RuleForDiagnosis?.requiresAuthorization) {
+      authRequiredCharges.push("Diagnosis: " + (claim.invoice.visit.medicalRecord.diagnosis ?? "on file"));
+    }
+
+    if (plan.scope === "CONDITION_SPECIFIC" && icd10RuleForDiagnosis?.covered === false) {
+      uncoveredCharges.push("Diagnosis not covered under this condition-specific plan");
+    }
+
+    results.push({
+      rule: "PLAN_COVERAGE",
+      label: "Plan Coverage",
+      passed: uncoveredCharges.length === 0,
+      message:
+        uncoveredCharges.length === 0
+          ? "All claimed items are covered under this plan."
+          : `Not covered under this plan: ${uncoveredCharges.join(", ")}.`
+    });
+
+    if (authRequiredCharges.length > 0) {
+
+      const hasAuth = await prisma.authorizationRequest.findFirst({
+        where: {
+          patientInsuranceId: policy.id,
+          visitId: claim.invoice.visitId,
+          status: "APPROVED"
+        }
+      });
+
+      results.push({
+        rule: "SERVICE_LEVEL_AUTH",
+        label: "Service-Level Prior Authorization",
+        passed: !!hasAuth,
+        message:
+          hasAuth
+            ? "An approved authorization covers the services requiring pre-authorization."
+            : `The following require prior authorization under this plan: ${authRequiredCharges.join(", ")}.`
+      });
+
+    }
 
   }
 

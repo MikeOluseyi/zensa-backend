@@ -121,4 +121,59 @@ router.post(
   }
 );
 
+// GET ALL INSURERS (platform-facing — for platform management screens)
+router.get(
+  "/platform/all",
+  protectPlatform,
+  authorizePlatformPermission("VIEW_INSURANCE_PROVIDERS"),
+  async (req, res) => {
+
+    try {
+
+      const providers = await prisma.insuranceProvider.findMany({
+        include: {
+          organization: {
+            select: { id: true, name: true, code: true, email: true, phone: true }
+          }
+        },
+        orderBy: { createdAt: "desc" }
+      });
+
+      res.json(providers);
+
+    } catch (err) {
+
+      console.log(err);
+      res.status(500).json({ error: "Failed to fetch insurance providers" });
+
+    }
+
+  }
+);
+
+// insuranceProviderRoutes.js — hospital-facing plan lookup for a given provider
+router.get(
+  "/:id/plans",
+  protect,
+  async (req, res) => {
+
+    try {
+
+      const plans = await prisma.insurancePlan.findMany({
+        where: { providerId: req.params.id, active: true },
+        orderBy: { name: "asc" }
+      });
+
+      res.json(plans);
+
+    } catch (err) {
+
+      console.log(err);
+      res.status(500).json({ error: "Failed to fetch plans" });
+
+    }
+
+  }
+);
+
 export default router;

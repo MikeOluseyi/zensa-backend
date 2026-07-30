@@ -173,6 +173,7 @@ model CPTCode {
   name        String
   serviceType String
   services    Service[]
+  planCoverageRules InsurancePlanCoverageRule[]
 }
 
 model HospitalService {
@@ -251,6 +252,7 @@ model ICD10Code {
   description    String
   createdAt      DateTime        @default(now())
   medicalRecords MedicalRecord[]
+  planCoverageRules InsurancePlanCoverageRule[]
 }
 
 model Prescription {
@@ -433,6 +435,21 @@ model InsuranceProvider {
   patients              PatientInsurance[]
 }
 
+model InsurancePlanCoverageRule {
+  id                     String        @id @default(cuid())
+  planId                 String
+  cptCodeId              String?
+  icd10Id                String?
+  covered                Boolean       @default(true)
+  requiresAuthorization  Boolean       @default(false)
+  createdAt              DateTime      @default(now())
+  plan                   InsurancePlan @relation(fields: [planId], references: [id])
+  cptCode                CPTCode?      @relation(fields: [cptCodeId], references: [id])
+  icd10                  ICD10Code?    @relation(fields: [icd10Id], references: [id])
+
+  @@unique([planId, cptCodeId, icd10Id])
+}
+
 model InsuranceStaff {
   id                      String                 @id @default(cuid())
   insuranceProviderId     String
@@ -456,6 +473,8 @@ model InsurancePlan {
   id                    String             @id @default(cuid())
   providerId            String
   name                  String
+  scope                 PlanScope                    @default(GENERAL)
+  coverageRules         InsurancePlanCoverageRule[]
   coveragePercent       Float
   authorizationRequired Boolean            @default(false)
   maxClaimAmount        Float?
@@ -1427,4 +1446,9 @@ enum MedicationOrderStatus {
   ACTIVE
   COMPLETED
   DISCONTINUED
+}
+
+enum PlanScope {
+  GENERAL
+  CONDITION_SPECIFIC
 }

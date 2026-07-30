@@ -8,6 +8,8 @@ import {
 
 } from "./procedureEngine.js";
 
+import { checkPreAuthRequired } from "./preAuthCheck.js";
+
 // AFTER
 function determineWorkflow(category) {
 
@@ -156,6 +158,7 @@ export async function createMedicalRecordService({
                 ? "CONSULTATION"
                 : "PROCEDURE";
 
+    // AFTER
         await createCharge({
 
     tx,
@@ -187,6 +190,23 @@ export async function createMedicalRecordService({
         orderedById
 
 });
+
+        // Fire-and-forget: pre-auth check shouldn't block the clinical
+        // action itself, only notify admin/accountant if something's missing.
+        try {
+
+            await checkPreAuthRequired({
+                patientId,
+                hospitalId,
+                visitId,
+                cptCodeId: hospitalService.service.cptId
+            });
+
+        } catch (err) {
+
+            console.log("Pre-auth check failed:", err);
+
+        }
 
         switch (workflow) {
 

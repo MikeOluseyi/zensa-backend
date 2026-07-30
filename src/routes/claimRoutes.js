@@ -86,25 +86,16 @@ router.post(
 
     try {
 
-      const {
+      // AFTER
+      const { insuranceId, invoiceId, claimedAmount } = req.body;
 
+      const claim = await createClaimDraft({
         insuranceId,
-        invoiceId
-
-      } = req.body;
-
-      const claim =
-        await createClaimDraft({
-
-          insuranceId,
-
-          invoiceId,
-
-          createdById: req.user.id,
-
-          hospitalId: req.user.hospitalId
-
-        });
+        invoiceId,
+        claimedAmount: claimedAmount != null ? Number(claimedAmount) : undefined,
+        createdById: req.user.id,
+        hospitalId: req.user.hospitalId
+      });
 
       await createAuditLog({
 

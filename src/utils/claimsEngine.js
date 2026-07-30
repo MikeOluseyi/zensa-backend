@@ -6,10 +6,12 @@ HOSPITAL
 ==========================================
 */
 
+// AFTER
 export async function createClaimDraft({
 
   insuranceId,
   invoiceId,
+  claimedAmount,
   createdById,
   hospitalId
 
@@ -17,53 +19,35 @@ export async function createClaimDraft({
 
   const invoice = await prisma.invoice.findFirst({
 
-    where: {
-      id: invoiceId,
-      hospitalId
-    },
-
-    include: {
-      charges: true
-    }
+    where: { id: invoiceId, hospitalId },
+    include: { charges: true }
 
   });
 
-  if (!invoice)
-    throw new Error("Invoice not found");
+  if (!invoice) throw new Error("Invoice not found");
 
   const insurance = await prisma.patientInsurance.findFirst({
-
-    where: {
-      id: insuranceId,
-      patientId: invoice.patientId
-    }
-
+    where: { id: insuranceId, patientId: invoice.patientId }
   });
 
-  if (!insurance)
-    throw new Error("Insurance record not found for this patient");
+  if (!insurance) throw new Error("Insurance record not found for this patient");
 
-  const claimNumber =
-    `CLM-${Date.now()}`;
+  if (claimedAmount != null && (claimedAmount <= 0 || claimedAmount > invoice.subtotal)) {
+    throw new Error("Claimed amount must be greater than zero and cannot exceed the invoice subtotal.");
+  }
+
+  const claimNumber = `CLM-${Date.now()}`;
 
   return prisma.claim.create({
 
     data: {
-
       claimNumber,
-
       patientId: invoice.patientId,
-
       insuranceId,
-
       invoiceId,
-
       submittedById: createdById,
-
-      totalAmount: invoice.subtotal,
-
+      totalAmount: claimedAmount ?? invoice.subtotal,
       status: "DRAFT"
-
     }
 
   });
