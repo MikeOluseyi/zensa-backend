@@ -2,7 +2,7 @@ import prisma from "../utils/prisma.js";
 
 async function main() {
 
-  const hospitalCode = process.env.WALLET_SEED_HOSPITAL_CODE="SMH-DHS";
+  const hospitalCode = process.env.WALLET_SEED_HOSPITAL_CODE="DHS";
   const amount = Number(process.env.WALLET_SEED_AMOUNT="550000");
 
   if (!hospitalCode) {
