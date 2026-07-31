@@ -54,6 +54,7 @@ import walletRoutes from "./routes/walletRoutes.js";
 import rbacRoutes from "./routes/rbacRoutes.js";
 import { protect } from "./middleware/authMiddleware.js";
 import { authorize } from "./middleware/roleMiddleware.js";
+import path from "path";
 
 
 const app = express();
@@ -111,6 +112,8 @@ app.use("/api/consultations", consultationsRoutes);
 app.use("/api/platform-staff", platformStaffRoutes);
 app.use("/api/wallets", walletRoutes);
 app.use("/api/rbac", rbacRoutes);
+
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 app.get("/", (req, res) => {
   res.send("Zensa Backend Running");

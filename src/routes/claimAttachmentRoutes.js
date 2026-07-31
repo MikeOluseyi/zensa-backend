@@ -2,6 +2,8 @@ import express from "express";
 import prisma from "../utils/prisma.js";
 
 import { protect } from "../middleware/authMiddleware.js";
+import { uploadClaimAttachment } from "../middleware/uploadMiddleware.js";
+
 
 const router = express.Router();
 
@@ -22,44 +24,64 @@ async function getScopedClaim(claimId, hospitalId) {
 
 }
 
-router.post("/:id", protect, async (req, res) => {
+router.post("/:id", protect, (req, res) => {
 
-  try {
+  uploadClaimAttachment(req, res, async (err) => {
 
-    const claim = await getScopedClaim(req.params.id, req.user.hospitalId);
-
-    if (!claim) {
-      return res.status(404).json({ error: "Claim not found" });
+    if (err) {
+      return res.status(400).json({ error: err.message });
     }
 
-    const attachment =
-      await prisma.claimAttachment.create({
+    try {
 
-        data: {
+      const claim = await getScopedClaim(req.params.id, req.user.hospitalId);
 
-          claimId: req.params.id,
+      if (!claim) {
 
-          fileName: req.body.fileName,
+        if (req.file) fs.unlinkSync(req.file.path);
 
-          fileUrl: req.body.fileUrl,
+        return res.status(404).json({ error: "Claim not found" });
 
-          type: req.body.type ?? "OTHER",
+      }
 
-          attachedByStaffId: req.user.id
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
 
-        }
+      const attachment =
+        await prisma.claimAttachment.create({
 
-      });
+          data: {
 
-    res.json(attachment);
+            claimId: req.params.id,
 
-  } catch (err) {
+            fileName: req.file.originalname,
 
-    console.log(err);
+            fileUrl: `/uploads/claims/${req.file.filename}`,
 
-    res.status(500).json({ error: "Failed to attach file" });
+            mimeType: req.file.mimetype,
 
-  }
+            type: req.body.type ?? "OTHER",
+
+            attachedByStaffId: req.user.id
+
+          }
+
+        });
+
+      res.json(attachment);
+
+    } catch (dbErr) {
+
+      console.log(dbErr);
+
+      if (req.file) fs.unlinkSync(req.file.path);
+
+      res.status(500).json({ error: "Failed to attach file" });
+
+    }
+
+  });
 
 });
 

@@ -175,6 +175,53 @@ router.post(
 );
 
 /*
+==================================================
+PENDING VERIFICATION (pharmacist queue)
+==================================================
+*/
+
+router.get(
+  "/pending-verification",
+  protect,
+  authorize("PHARMACIST", "ADMIN"),
+  async (req, res) => {
+    try {
+      console.log("DEBUG hospitalId:", req.user.hospitalId);
+
+      // Your new debug logs inserted here
+      console.log("DEBUG order count with no filter:", await prisma.admissionMedicationOrder.count());
+      console.log("DEBUG order count with hospital filter:", await prisma.admissionMedicationOrder.count({
+        where: { admission: { patient: { hospitalId: req.user.hospitalId } } }
+      }));
+
+      const orders = await prisma.admissionMedicationOrder.findMany({
+        where: {
+          verificationStatus: "PENDING_VERIFICATION",
+          admission: { patient: { hospitalId: req.user.hospitalId } }
+        },
+        include: {
+          doctor: { select: { firstName: true, lastName: true } },
+          inventoryItem: { select: { id: true, name: true, quantity: true, sellingPrice: true } },
+          admission: {
+            include: {
+              patient: { select: { firstName: true, lastName: true, patientNumber: true } },
+              bed: { include: { ward: true } }
+            }
+          }
+        },
+        orderBy: { createdAt: "asc" }
+      });
+
+      res.json(orders);
+
+    } catch (err) {
+      console.log(err);
+      res.status(500).json({ error: "Failed to fetch pending verification orders" });
+    }
+  }
+);
+
+/*
  GET MEDICATION CHART
  Doctor and Nurse
 */
@@ -267,48 +314,7 @@ administrations: { orderBy: { scheduledAt: "asc" } }
 
   }
 
-);
-
-/*
-==================================================
-PENDING VERIFICATION (pharmacist queue)
-==================================================
-*/
-
-router.get(
-  "/pending-verification",
-  protect,
-  authorize("PHARMACIST", "ADMIN"),
-  async (req, res) => {
-    try {
-
-      const orders =
-        await prisma.admissionMedicationOrder.findMany({
-          where: {
-            verificationStatus: "PENDING_VERIFICATION",
-            admission: { patient: { hospitalId: req.user.hospitalId } }
-          },
-          include: {
-            doctor: { select: { firstName: true, lastName: true } },
-            inventoryItem: { select: { id: true, name: true, quantity: true, sellingPrice: true } },
-            admission: {
-              include: {
-                patient: { select: { firstName: true, lastName: true, patientNumber: true } },
-                bed: { include: { ward: true } }
-              }
-            }
-          },
-          orderBy: { createdAt: "asc" }
-        });
-
-      res.json(orders);
-
-    } catch (err) {
-      console.log(err);
-      res.status(500).json({ error: "Failed to fetch pending verification orders" });
-    }
-  }
-);
+); 
 
 /*
 ==================================================
