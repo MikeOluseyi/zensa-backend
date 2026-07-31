@@ -8,6 +8,85 @@ import { topUpWallet } from "../utils/walletService.js";
 const router = express.Router();
 
 
+router.post(
+  "/",
+  protectPlatform,
+  authorizePlatformPermission("TOP_UP_WALLET"),
+  async (req, res) => {
+
+    try {
+
+      const { organizationId, hospitalId, initialAmount, description } = req.body;
+
+      if (!organizationId && !hospitalId) {
+        return res.status(400).json({ error: "organizationId or hospitalId is required" });
+      }
+
+      let wallet;
+
+      if (organizationId) {
+
+        const org = await prisma.organization.findUnique({ where: { id: organizationId } });
+
+        if (!org) {
+          return res.status(404).json({ error: "Organization not found" });
+        }
+
+        const existing = await prisma.wallet.findUnique({ where: { organizationId } });
+
+        if (existing) {
+          return res.status(400).json({ error: "A wallet already exists for this organization." });
+        }
+
+        wallet = await prisma.wallet.create({ data: { organizationId, balance: 0 } });
+
+      } else {
+
+        const hospital = await prisma.hospital.findUnique({ where: { id: hospitalId } });
+
+        if (!hospital) {
+          return res.status(404).json({ error: "Hospital not found" });
+        }
+
+        const existing = await prisma.wallet.findUnique({ where: { hospitalId } });
+
+        if (existing) {
+          return res.status(400).json({ error: "A wallet already exists for this hospital." });
+        }
+
+        wallet = await prisma.wallet.create({ data: { hospitalId, balance: 0 } });
+
+      }
+
+      if (initialAmount && Number(initialAmount) > 0) {
+
+        wallet = await topUpWallet({
+
+          walletId: wallet.id,
+
+          amount: Number(initialAmount),
+
+          performedById: req.platformUser.id,
+
+          description: description || "Initial wallet funding"
+
+        });
+
+      }
+
+      res.json(wallet);
+
+    } catch (err) {
+
+      console.log(err);
+
+      res.status(500).json({ error: "Failed to create wallet" });
+
+    }
+
+  }
+);
+
 // ================= HOSPITAL-SIDE (own wallet only) =================
 
 router.get("/mine", protect, async (req, res) => {

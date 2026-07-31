@@ -415,6 +415,63 @@ router.patch(
   }
 );
 
+// LOGIN / SESSION HISTORY
+router.get(
+  "/login-logs",
+  protect,
+  authorize("ADMIN"),
+  async (req, res) => {
+
+    try {
+
+      const { staffId } = req.query;
+
+      const logs = await prisma.staffLoginLog.findMany({
+
+        where: {
+
+          hospitalId: req.user.hospitalId,
+
+          ...(staffId && { staffId })
+
+        },
+
+        include: {
+
+          staff: {
+            select: {
+              firstName: true,
+              lastName: true,
+              role: true,
+              email: true
+            }
+          }
+
+        },
+
+        orderBy: {
+          createdAt: "desc"
+        },
+
+        take: 200
+
+      });
+
+      res.json(logs);
+
+    } catch (err) {
+
+      console.log(err);
+
+      res.status(500).json({
+        error: "Failed to fetch login logs"
+      });
+
+    }
+
+  }
+);
+
 router.get(
   "/:id",
   protect,
@@ -613,63 +670,6 @@ router.patch(
 
         error: "Failed to remove department"
 
-      });
-
-    }
-
-  }
-);
-
-// LOGIN / SESSION HISTORY
-router.get(
-  "/login-logs",
-  protect,
-  authorize("ADMIN"),
-  async (req, res) => {
-
-    try {
-
-      const { staffId } = req.query;
-
-      const logs = await prisma.staffLoginLog.findMany({
-
-        where: {
-
-          hospitalId: req.user.hospitalId,
-
-          ...(staffId && { staffId })
-
-        },
-
-        include: {
-
-          staff: {
-            select: {
-              firstName: true,
-              lastName: true,
-              role: true,
-              email: true
-            }
-          }
-
-        },
-
-        orderBy: {
-          createdAt: "desc"
-        },
-
-        take: 200
-
-      });
-
-      res.json(logs);
-
-    } catch (err) {
-
-      console.log(err);
-
-      res.status(500).json({
-        error: "Failed to fetch login logs"
       });
 
     }

@@ -160,6 +160,109 @@ router.get("/", protect, async (req, res) => {
   }
 });
 
+const REQUIRED_FIELDS = ["patientNumber", "firstName", "lastName", "dateOfBirth", "gender"];
+
+router.post(
+  "/bulk-import",
+  protect,
+  authorizePermission("CREATE_PATIENT"),
+  async (req, res) => {
+
+    try {
+
+      const { patients } = req.body;
+
+      if (!Array.isArray(patients) || patients.length === 0) {
+        return res.status(400).json({ error: "No patient rows provided." });
+      }
+
+      const results = { created: 0, skipped: [], errors: [] };
+
+      for (let i = 0; i < patients.length; i++) {
+
+        const row = patients[i];
+        const rowLabel = `Row ${i + 2}`; // +2 accounts for header row + 1-indexing
+
+        const missing = REQUIRED_FIELDS.filter((f) => !row[f]);
+        if (missing.length > 0) {
+          results.errors.push(`${rowLabel}: missing ${missing.join(", ")}`);
+          continue;
+        }
+
+        const existing = await prisma.patient.findFirst({
+          where: { patientNumber: String(row.patientNumber) }
+        });
+
+        if (existing) {
+          results.skipped.push(`${rowLabel}: patient number "${row.patientNumber}" already exists`);
+          continue;
+        }
+
+        let dateOfBirth;
+        try {
+          dateOfBirth = new Date(row.dateOfBirth);
+          if (isNaN(dateOfBirth.getTime())) throw new Error();
+        } catch {
+          results.errors.push(`${rowLabel}: invalid date of birth "${row.dateOfBirth}"`);
+          continue;
+        }
+
+        const gender = String(row.gender).toUpperCase();
+        if (!["MALE", "FEMALE", "OTHER"].includes(gender)) {
+          results.errors.push(`${rowLabel}: invalid gender "${row.gender}" (must be MALE, FEMALE, or OTHER)`);
+          continue;
+        }
+
+        try {
+
+          await prisma.patient.create({
+            data: {
+              patientNumber: String(row.patientNumber),
+              firstName: row.firstName,
+              middleName: row.middleName || null,
+              lastName: row.lastName,
+              dateOfBirth: row.dateOfBirth
+  ? new Date(row.dateOfBirth)
+  : null,
+              gender,
+              phone: row.phone || null,
+              email: row.email || null,
+              address: row.address || null,
+              bloodGroup: row.bloodGroup || null,
+              genotype: row.genotype || null,
+              stateOfOrigin: row.stateOfOrigin || null,
+              localGovernmentOfOrigin: row.localGovernmentOfOrigin || null,
+              nextOfKinName: row.nextOfKinName || null,
+              nextOfKinRelationship: row.nextOfKinRelationship || null,
+              nextOfKinAddress: row.nextOfKinAddress || null,
+              nextOfKinPhone: row.nextOfKinPhone || null,
+              nextOfKinEmail: row.nextOfKinEmail || null,
+              hospitalId: req.user.hospitalId
+            }
+          });
+
+          results.created++;
+
+        } catch (err) {
+
+          results.errors.push(`${rowLabel}: ${err.message}`);
+
+        }
+
+      }
+
+      res.json(results);
+
+    } catch (err) {
+
+      console.log(err);
+      res.status(500).json({ error: "Bulk import failed" });
+
+    }
+
+  }
+);
+
 
 // GET SINGLE PATIENT
 router.get("/:id", protect, async (req, res) => {

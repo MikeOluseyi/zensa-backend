@@ -1,7 +1,7 @@
 import express from "express";
 import prisma from "../utils/prisma.js";
 import { createCharge } from "../utils/billing/index.js";
-import { createMedicationOrder, addScheduledDose, verifyMedicationOrder, rejectMedicationOrder } from "../utils/admissionMedicationEngine.js";
+import { createMedicationOrder, administerDose, addScheduledDose, verifyMedicationOrder, rejectMedicationOrder } from "../utils/admissionMedicationEngine.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { authorize } from "../middleware/roleMiddleware.js";
 

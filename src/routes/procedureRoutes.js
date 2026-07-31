@@ -9,7 +9,7 @@ import {
 
 } from "../utils/procedureEngine.js";
 
-import { createMedicalRecordService } from "../utils/serviceEngine.js";
+import { createMedicalRecordService, getConsultationHospitalService } from "../utils/serviceEngine.js";
 
 import { saveProcedureResult } from "../utils/procedureResultsEngine.js";
 
@@ -193,6 +193,91 @@ const medicalRecordService =
 
     }
 
+);
+
+router.post(
+    "/admission",
+    protect,
+    authorize("DOCTOR", "ADMIN"),
+    authorizePermission("ORDER_PROCEDURE"),
+    async (req, res) => {
+
+        try {
+
+            const { admissionId, hospitalServiceId, notes } = req.body;
+
+            const admission =
+                await prisma.admission.findFirst({
+                    where: {
+                        id: admissionId,
+                        patient: { hospitalId: req.user.hospitalId }
+                    }
+                });
+
+            if (!admission)
+                throw new Error("Admission not found.");
+
+            let medicalRecordId = admission.medicalRecordId;
+
+            const result = await prisma.$transaction(async (tx) => {
+
+                if (!medicalRecordId) {
+
+                    const record = await tx.medicalRecord.create({
+                        data: {
+                            patientId: admission.patientId,
+                            visitId: admission.visitId,
+                            doctorId: req.user.id,
+                            status: "FINAL"
+                        }
+                    });
+
+                    medicalRecordId = record.id;
+
+                    await tx.admission.update({
+                        where: { id: admission.id },
+                        data: { medicalRecordId }
+                    });
+
+                }
+
+                return createMedicalRecordService({
+                    tx,
+                    medicalRecordId,
+                    visitId: admission.visitId,
+                    patientId: admission.patientId,
+                    hospitalId: req.user.hospitalId,
+                    hospitalServiceId,
+                    orderedById: req.user.id,
+                    notes
+                });
+
+            });
+
+            const withDetails =
+                await prisma.medicalRecordService.findUnique({
+                    where: { id: result.id },
+                    include: {
+                        hospitalService: {
+                            include: { service: { include: { cpt: true } } }
+                        },
+                        procedureRequest: true
+                    }
+                });
+
+            res.json(withDetails);
+
+        } catch (err) {
+
+            console.log(err);
+
+            res.status(500).json({
+                error: err.message || "Failed to order procedure"
+            });
+
+        }
+
+    }
 );
 
 

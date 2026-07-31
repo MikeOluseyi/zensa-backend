@@ -1,6 +1,7 @@
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
 import { authorize } from "../middleware/roleMiddleware.js";
+import { authorizePermission } from "../middleware/permissionMiddleware.js";
 import {
     admitPatient,
     orderDischarge,
@@ -14,6 +15,7 @@ import {
 } from "../utils/admissionServices.js";
 
 import { postCharge } from "../utils/billing/index.js";
+import { createMedicalRecordService } from "../utils/serviceEngine.js";
 
 const router = express.Router();
 
@@ -342,6 +344,7 @@ router.patch(
 
     }
 );
+
 
 // AFTER
 router.patch(

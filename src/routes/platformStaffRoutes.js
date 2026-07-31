@@ -77,18 +77,18 @@ router.post("/login", async (req, res) => {
 
 // CREATE PLATFORM STAFF — only an existing SUPER_ADMIN can create more
 router.post(
-
   "/",
-
   protectPlatform,
-
-  authorizePlatformPermission("SUPER_ADMIN"),
-
+  authorizePlatformPermission("CREATE_PLATFORM_STAFF"),
   async (req, res) => {
 
     try {
 
       const { firstName, lastName, email, password, role } = req.body;
+
+      if (!firstName || !lastName || !email || !password || !role) {
+        return res.status(400).json({ error: "All fields are required." });
+      }
 
       const existing = await prisma.platformStaff.findUnique({ where: { email } });
 
@@ -120,6 +120,37 @@ router.post(
 
   }
 
+);
+
+router.get(
+  "/",
+  protectPlatform,
+  authorizePlatformPermission("VIEW_PLATFORM_STAFF"),
+  async (req, res) => {
+
+    try {
+
+      const staff = await prisma.platformStaff.findMany({
+
+        select: {
+          id: true, firstName: true, lastName: true, email: true, role: true, isActive: true, createdAt: true
+        },
+
+        orderBy: { createdAt: "asc" }
+
+      });
+
+      res.json(staff);
+
+    } catch (err) {
+
+      console.log(err);
+
+      res.status(500).json({ error: "Failed to fetch platform staff" });
+
+    }
+
+  }
 );
 
 export default router;
