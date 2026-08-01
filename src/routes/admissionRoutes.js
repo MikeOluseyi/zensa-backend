@@ -307,7 +307,7 @@ router.patch(
 router.patch(
     "/:id/change-doctor",
     protect,
-    authorize("DOCTOR","ADMIN"),
+    authorize("DOCTOR","ADMIN", "NURSE"),
     async(req,res)=>{
 
         try{

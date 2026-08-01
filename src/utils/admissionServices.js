@@ -211,29 +211,27 @@ async function admitPatientCore(tx, {
   if (bedClaim.count === 0)
     throw new Error("BED_NOT_AVAILABLE");
 
+ 
   //----------------------------------
-  // VERIFY DOCTOR
+  // VERIFY DOCTOR (optional — emergency admissions may have none yet)
   //----------------------------------
 
-  const doctor =
-    await tx.staff.findFirst({
+  if (attendingDoctorId) {
 
-      where: {
+    const doctor =
+      await tx.staff.findFirst({
+        where: {
+          id: attendingDoctorId,
+          role: "DOCTOR",
+          hospitalId: requestUser.hospitalId,
+          isActive: true
+        }
+      });
 
-        id: attendingDoctorId,
+    if (!doctor)
+      throw new Error("DOCTOR_NOT_FOUND");
 
-        role: "DOCTOR",
-
-        hospitalId: requestUser.hospitalId,
-
-        isActive: true
-
-      }
-
-    });
-
-  if (!doctor)
-    throw new Error("DOCTOR_NOT_FOUND");
+  }
 
   //----------------------------------
   // CREATE ADMISSION

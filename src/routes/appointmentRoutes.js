@@ -84,9 +84,9 @@ if (departmentId) {
   }
 }
 
+     // AFTER
       const existingAppointment =
   await prisma.appointment.findFirst({
-
     where: {
       doctorId,
       appointmentDate: new Date(appointmentDate)
@@ -94,9 +94,28 @@ if (departmentId) {
   });
 
 if (existingAppointment) {
-
   return res.status(400).json({
     error: "Doctor already has an appointment at this time"
+  });
+}
+
+      const activePatientAppointment =
+  await prisma.appointment.findFirst({
+    where: {
+      patientId,
+      status: {
+        in: [
+          "SCHEDULED", "CHECKED_IN", "TRIAGED", "QUEUED",
+          "IN_PROGRESS", "AWAITING_RESULTS", "READY_FOR_REVIEW",
+          "ADMISSION_REQUESTED", "ADMITTED"
+        ]
+      }
+    }
+  });
+
+if (activePatientAppointment) {
+  return res.status(400).json({
+    error: "This patient already has an active, unresolved appointment."
   });
 }
 
