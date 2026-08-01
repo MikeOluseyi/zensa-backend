@@ -4,6 +4,9 @@ import prisma from "../utils/prisma.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { uploadClaimAttachment } from "../middleware/uploadMiddleware.js";
 
+import path from "path";
+import fs from "fs";
+
 
 const router = express.Router();
 
@@ -113,6 +116,47 @@ router.get("/:id", protect, async (req, res) => {
     console.log(err);
 
     res.status(500).json({ error: "Failed to fetch attachments" });
+
+  }
+
+});
+
+const UPLOAD_DIR = path.join(process.cwd(), "uploads", "claims");
+
+router.get("/download/:attachmentId", protect, async (req, res) => {
+
+  try {
+
+    const attachment = await prisma.claimAttachment.findFirst({
+
+      where: {
+        id: req.params.attachmentId,
+        claim: {
+          patient: {
+            hospitalId: req.user.hospitalId
+          }
+        }
+      }
+
+    });
+
+    if (!attachment) {
+      return res.status(404).json({ error: "Attachment not found" });
+    }
+
+    const filePath = path.join(UPLOAD_DIR, path.basename(attachment.fileUrl));
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: "File no longer exists on server" });
+    }
+
+    res.download(filePath, attachment.fileName);
+
+  } catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({ error: "Failed to download attachment" });
 
   }
 

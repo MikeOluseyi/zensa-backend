@@ -113,7 +113,6 @@ app.use("/api/platform-staff", platformStaffRoutes);
 app.use("/api/wallets", walletRoutes);
 app.use("/api/rbac", rbacRoutes);
 
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 app.get("/", (req, res) => {
   res.send("Zensa Backend Running");

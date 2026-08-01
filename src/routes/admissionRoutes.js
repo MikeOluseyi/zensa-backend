@@ -1,6 +1,7 @@
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
 import { authorize } from "../middleware/roleMiddleware.js";
+import prisma from "../utils/prisma.js";
 import { authorizePermission } from "../middleware/permissionMiddleware.js";
 import {
     admitPatient,

@@ -20,21 +20,15 @@ import { buildClaimDTO } from "../utils/claimDelivery/buildClaimDTO.js";
 
 import { validateClaimRules } from "../utils/claimRulesEngine.js";
 
-import {
+import { protectInsurance } from "../middleware/insuranceAuthMiddleware.js";
 
-protectInsurance
+import { authorizeInsurancePermission } from "../middleware/permissionMiddleware.js";
 
-}
+import { uploadClaimAttachment } from "../middleware/uploadMiddleware.js";
 
-from "../middleware/insuranceAuthMiddleware.js";
+import fs from "fs";
 
-import {
-
-authorizeInsurancePermission
-
-}
-
-from "../middleware/permissionMiddleware.js";
+import path from "path";
 
 const router=express.Router();
 
@@ -473,48 +467,112 @@ router.post(
   "/:id/attachments",
   protectInsurance,
   authorizeInsurancePermission("VIEW_CLAIMS"),
+  (req, res) => {
+
+    uploadClaimAttachment(req, res, async (err) => {
+
+      if (err) {
+        return res.status(400).json({ error: err.message });
+      }
+
+      try {
+
+        const claim = await prisma.claim.findFirst({
+          where: {
+            id: req.params.id,
+            insurance: { providerId: req.insuranceProvider.id }
+          }
+        });
+
+        if (!claim) {
+
+          if (req.file) fs.unlinkSync(req.file.path);
+
+          return res.status(404).json({ error: "Claim not found" });
+
+        }
+
+        if (!req.file) {
+          return res.status(400).json({ error: "No file uploaded" });
+        }
+
+        const attachment = await prisma.claimAttachment.create({
+
+          data: {
+
+            claimId: req.params.id,
+
+            fileName: req.file.originalname,
+
+            fileUrl: `/uploads/claims/${req.file.filename}`,
+
+            mimeType: req.file.mimetype,
+
+            type: req.body.type ?? "OTHER",
+
+            attachedByInsuranceStaffId: req.user.id
+
+          }
+
+        });
+
+        res.json(attachment);
+
+      } catch (dbErr) {
+
+        console.log(dbErr);
+
+        if (req.file) fs.unlinkSync(req.file.path);
+
+        res.status(500).json({ error: "Failed to add attachment" });
+
+      }
+
+    });
+
+  }
+);
+
+const UPLOAD_DIR = path.join(process.cwd(), "uploads", "claims");
+
+router.get(
+  "/attachments/download/:attachmentId",
+  protectInsurance,
+  authorizeInsurancePermission("VIEW_CLAIMS"),
   async (req, res) => {
 
     try {
 
-      const claim = await prisma.claim.findFirst({
+      const attachment = await prisma.claimAttachment.findFirst({
+
         where: {
-          id: req.params.id,
-          insurance: { providerId: req.insuranceProvider.id }
+          id: req.params.attachmentId,
+          claim: {
+            insurance: {
+              providerId: req.insuranceProvider.id
+            }
+          }
         }
+
       });
 
-      if (!claim) {
-        return res.status(404).json({ error: "Claim not found" });
+      if (!attachment) {
+        return res.status(404).json({ error: "Attachment not found" });
       }
 
-      const { fileName, fileUrl, type } = req.body;
+      const filePath = path.join(UPLOAD_DIR, path.basename(attachment.fileUrl));
 
-      const attachment = await prisma.claimAttachment.create({
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: "File no longer exists on server" });
+      }
 
-        data: {
-
-          claimId: req.params.id,
-
-          fileName,
-
-          fileUrl,
-
-          type: type ?? "OTHER",
-
-          attachedByInsuranceStaffId: req.user.id
-
-        }
-
-      });
-
-      res.json(attachment);
+      res.download(filePath, attachment.fileName);
 
     } catch (err) {
 
       console.log(err);
 
-      res.status(500).json({ error: "Failed to add attachment" });
+      res.status(500).json({ error: "Failed to download attachment" });
 
     }
 
