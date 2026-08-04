@@ -253,6 +253,25 @@ if (masterService.category === "CONSULTATION") {
 );
 
 router.patch(
+  "/default-daily-round",
+  protect,
+  authorize("ADMIN"),
+  async (req, res) => {
+    try {
+      const { hospitalServiceId } = req.body;
+      await prisma.hospital.update({
+        where: { id: req.user.hospitalId },
+        data: { defaultDailyRoundServiceId: hospitalServiceId || null }
+      });
+      res.json({ success: true });
+    } catch (err) {
+      console.log(err);
+      res.status(500).json({ error: "Failed to set default daily round service" });
+    }
+  }
+);
+
+router.patch(
   "/:id/price",
   protect,
   authorize("ADMIN"),

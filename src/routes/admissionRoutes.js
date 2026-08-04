@@ -14,7 +14,7 @@ import {
     getWardPatients,
     getDoctorPatients
 } from "../utils/admissionServices.js";
-
+import { ensureDailyRound, getTodayRoundStatus } from "../utils/admissionRoundEngine.js";
 import { postCharge } from "../utils/billing/index.js";
 import { createMedicalRecordService } from "../utils/serviceEngine.js";
 
@@ -221,6 +221,44 @@ router.get(
         }
 
     }
+);
+
+router.post(
+  "/:id/daily-round",
+  protect,
+  authorize("DOCTOR", "ADMIN"),
+  async (req, res) => {
+    try {
+      const round = await ensureDailyRound({
+        admissionId: req.params.id,
+        hospitalId: req.user.hospitalId,
+        staffId: req.user.id,
+        hospitalServiceId: req.body.hospitalServiceId || null
+      });
+      res.json(round);
+    } catch (err) {
+      console.log(err);
+      const status = err.message === "ROUND_SERVICE_REQUIRED" ? 400 : err.message === "ADMISSION_NOT_FOUND" ? 404 : 500;
+      res.status(status).json({ error: err.message, code: err.message });
+    }
+  }
+);
+
+router.get(
+  "/:id/daily-round-status",
+  protect,
+  async (req, res) => {
+    try {
+      const status = await getTodayRoundStatus({
+        admissionId: req.params.id,
+        hospitalId: req.user.hospitalId
+      });
+      res.json(status);
+    } catch (err) {
+      console.log(err);
+      res.status(err.message === "ADMISSION_NOT_FOUND" ? 404 : 500).json({ error: err.message });
+    }
+  }
 );
 
 router.get(

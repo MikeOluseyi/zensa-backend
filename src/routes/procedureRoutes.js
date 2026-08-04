@@ -2,17 +2,10 @@ import express from "express";
 
 import prisma from "../utils/prisma.js";
 
-import {
-
-    updateProcedureRequest,
-    cancelProcedureRequest
-
-} from "../utils/procedureEngine.js";
-
+import { updateProcedureRequest, cancelProcedureRequest } from "../utils/procedureEngine.js";
 import { createMedicalRecordService, getConsultationHospitalService } from "../utils/serviceEngine.js";
-
+import { ensureDailyRound } from "../utils/admissionRoundEngine.js";
 import { saveProcedureResult } from "../utils/procedureResultsEngine.js";
-
 import { createAuditLog } from "../utils/auditService.js";
 
 import { protect } from "../middleware/authMiddleware.js";
@@ -217,6 +210,12 @@ router.post(
             if (!admission)
                 throw new Error("Admission not found.");
 
+             await ensureDailyRound({
+                admissionId,
+                hospitalId: req.user.hospitalId,
+                staffId: req.user.id
+            });
+
             let medicalRecordId = admission.medicalRecordId;
 
             const result = await prisma.$transaction(async (tx) => {
@@ -274,6 +273,13 @@ router.post(
             res.status(500).json({
                 error: err.message || "Failed to order procedure"
             });
+
+            if (err.message === "ROUND_SERVICE_REQUIRED") {
+        return res.status(400).json({
+          error: "Today's consultation round hasn't been recorded and no default service is configured.",
+          code: "ROUND_SERVICE_REQUIRED"
+        });
+      }
 
         }
 

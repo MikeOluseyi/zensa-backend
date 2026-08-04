@@ -156,6 +156,7 @@ export async function addScheduledDose({ orderId, scheduledAt }) {
 |--------------------------------------------------------------------------
 */
 
+// AFTER
 export async function administerDose({
 
   orderId,
@@ -169,12 +170,14 @@ export async function administerDose({
 
   return prisma.$transaction(async (tx) => {
 
-    // AFTER
     const order =
       await tx.admissionMedicationOrder.findFirst({
         where: {
           id: orderId,
           admission: { patient: { hospitalId } }
+        },
+        include: {
+          admission: { select: { patientId: true, visitId: true } }
         }
       });
 
@@ -247,6 +250,7 @@ export async function administerDose({
 
     }
 
+    // AFTER
     if (status === "GIVEN" && order.inventoryItemId) {
 
       const claimed =
@@ -268,6 +272,35 @@ export async function administerDose({
           createdById: administeredById
         }
       });
+
+      const inventoryItem =
+        await tx.inventoryItem.findUnique({
+          where: { id: order.inventoryItemId },
+          select: { name: true, sellingPrice: true }
+        });
+
+      if (inventoryItem?.sellingPrice != null) {
+
+        await createCharge({
+          tx,
+          patientId: order.admission.patientId,
+          visitId: order.admission.visitId,
+          hospitalId,
+          hospitalServiceId: null,
+          serviceId: null,
+          quantity: 1,
+          unitPrice: inventoryItem.sellingPrice,
+          description: inventoryItem.name,
+          sourceType: "MEDICATION",
+          sourceId: administration.id,
+          createdById: administeredById
+        });
+
+      } else {
+
+        console.log(`WARNING: ${order.medicationName} has no selling price — dose administered but not billed.`);
+
+      }
 
     }
 

@@ -1,11 +1,10 @@
 import express from "express";
 import prisma from "../utils/prisma.js";
 
-import { protect }
-from "../middleware/authMiddleware.js";
+import { ensureDailyRound } from "../utils/admissionRoundEngine.js";
 
-import { authorize }
-from "../middleware/roleMiddleware.js";
+import { protect } from "../middleware/authMiddleware.js";
+import { authorize } from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 
@@ -59,6 +58,12 @@ router.post(
 
       }
 
+      await ensureDailyRound({
+          admissionId,
+          hospitalId: req.user.hospitalId,
+          staffId: req.user.id
+        });
+
       const note =
   await prisma.admissionDoctorNote.create({
 
@@ -110,6 +115,12 @@ router.post(
 
       console.log(err);
 
+       if (err.message === "ROUND_SERVICE_REQUIRED") {
+        return res.status(400).json({
+          error: "Today's consultation round hasn't been recorded and no default service is configured.",
+          code: "ROUND_SERVICE_REQUIRED"
+        });
+      }
 
       res.status(500).json({
 
@@ -117,7 +128,6 @@ router.post(
           "Failed to create doctor note"
 
       });
-
 
     }
 

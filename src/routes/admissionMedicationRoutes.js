@@ -1,7 +1,7 @@
 import express from "express";
 import prisma from "../utils/prisma.js";
-import { createCharge } from "../utils/billing/index.js";
 import { createMedicationOrder, administerDose, addScheduledDose, verifyMedicationOrder, rejectMedicationOrder } from "../utils/admissionMedicationEngine.js";
+import { ensureDailyRound } from "../utils/admissionRoundEngine.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { authorize } from "../middleware/roleMiddleware.js";
 
@@ -53,6 +53,12 @@ router.post(
         if (!admission) {
           throw new Error("ADMISSION_NOT_FOUND");
         }
+
+        await ensureDailyRound({
+          admissionId,
+          hospitalId: req.user.hospitalId,
+          staffId: req.user.id
+        });
 
         let inventoryItem = null;
 
@@ -111,38 +117,6 @@ router.post(
             scheduledTimes
             });
 
-        if (inventoryItem) {
-
-          await createCharge({
-
-            tx,
-
-            patientId: admission.patientId,
-
-            visitId: admission.visitId,
-
-            hospitalId: req.user.hospitalId,
-
-            hospitalServiceId: null,
-
-            serviceId: null,
-
-            quantity: 1,
-
-            unitPrice: inventoryItem.sellingPrice,
-
-            description: inventoryItem.name,
-
-            sourceType: "MEDICATION",
-
-            sourceId: createdOrder.id,
-
-            createdById: req.user.id
-
-          });
-
-        }
-
         return createdOrder;
 
       });
@@ -155,6 +129,13 @@ router.post(
 
       if (err.message === "ADMISSION_NOT_FOUND") {
         return res.status(404).json({ error: "Admission not found" });
+      }
+
+      if (err.message === "ROUND_SERVICE_REQUIRED") {
+        return res.status(400).json({
+          error: "Today's consultation round hasn't been recorded and no default service is configured.",
+          code: "ROUND_SERVICE_REQUIRED"
+        });
       }
 
       if (err.message === "MEDICATION_NOT_FOUND") {

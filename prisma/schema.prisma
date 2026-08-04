@@ -42,6 +42,8 @@ model Hospital {
   charges               Charge[]
   departments           Department[]
   organization          Organization?          @relation(fields: [organizationId], references: [id])
+  defaultDailyRoundServiceId String?
+  defaultDailyRoundService   HospitalService? @relation("HospitalDefaultDailyRound", fields: [defaultDailyRoundServiceId], references: [id])
   services              HospitalService[]
   inventoryItems        InventoryItem[]
   invoices              Invoice[]
@@ -127,6 +129,7 @@ model Staff {
   hospital                     Hospital                   @relation(fields: [hospitalId], references: [id])
   stockMovements               StockMovement[]
   triagedVisits                Visit[]                    @relation("VisitTriagedBy")
+  admissionRoundsRecorded AdmissionDailyRound[]
   vitalRecords                 VitalRecord[]
 }
 
@@ -189,6 +192,8 @@ model HospitalService {
   department   Department?            @relation(fields: [departmentId], references: [id])
   hospital     Hospital               @relation(fields: [hospitalId], references: [id])
   service      Service                @relation(fields: [serviceId], references: [id])
+  hospitalsUsingAsDefaultRound Hospital[]             @relation("HospitalDefaultDailyRound")
+  dailyRounds                   AdmissionDailyRound[]
   services     MedicalRecordService[]
   admissionRequests AdmissionRequest[]
   @@unique([hospitalId, serviceId])
@@ -609,6 +614,7 @@ model Admission {
   bedId                String
   reason               String?
   admittedAt           DateTime                   @default(now())
+  dailyRounds AdmissionDailyRound[]
   dischargedAt         DateTime?
   status               AdmissionStatus            @default(ADMITTED)
   createdAt            DateTime                   @default(now())
@@ -634,6 +640,22 @@ model Admission {
   medicationOrders     AdmissionMedicationOrder[]
   transfers            AdmissionTransfer[]
   nursingNotes         NursingNote[]
+}
+
+model AdmissionDailyRound {
+  id                String          @id @default(cuid())
+  admissionId       String
+  roundDate         DateTime
+  hospitalServiceId String
+  recordedById      String
+  chargeId          String?         @unique
+  createdAt         DateTime        @default(now())
+  admission         Admission       @relation(fields: [admissionId], references: [id])
+  hospitalService   HospitalService @relation(fields: [hospitalServiceId], references: [id])
+  recordedBy        Staff           @relation(fields: [recordedById], references: [id])
+  charge            Charge?         @relation(fields: [chargeId], references: [id])
+
+  @@unique([admissionId, roundDate])
 }
 
 model AdmissionRequest {
@@ -1017,6 +1039,7 @@ model Charge {
   hospital               Hospital              @relation(fields: [hospitalId], references: [id])
   hospitalService        HospitalService?       @relation(fields: [hospitalServiceId], references: [id])
   invoice                Invoice?              @relation(fields: [invoiceId], references: [id])
+  dailyRound AdmissionDailyRound?
   medicalRecordService   MedicalRecordService? @relation(fields: [medicalRecordServiceId], references: [id])
   patient                Patient               @relation(fields: [patientId], references: [id])
   service                Service?               @relation(fields: [serviceId], references: [id])

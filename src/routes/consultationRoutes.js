@@ -67,7 +67,7 @@ RESUME CONSULTATION
 router.patch(
   "/:id/resume",
   protect,
-  authorize("DOCTOR", "ADMIN"),
+  authorize("DOCTOR"),
   authorizePermission("START_CONSULTATION"),
   async (req, res) => {
 
