@@ -126,6 +126,7 @@ router.post(
 router.get(
     "/",
     protect,
+    authorize("ADMIN"),
     async(req,res)=>{
 
         try{
@@ -155,6 +156,7 @@ router.get(
     }
 );
 
+// AFTER
 router.get(
     "/my-patients",
     protect,
@@ -164,12 +166,12 @@ router.get(
         try{
 
             const admissions =
-                await getDoctorPatients(
+                await getDoctorPatients({
 
-                    req.user.id,
-                    req.user.hospitalId
+                    doctorId: req.user.id,
+                    hospitalId: req.user.hospitalId
 
-                );
+                });
 
             res.json(admissions);
 
@@ -261,6 +263,7 @@ router.get(
   }
 );
 
+// AFTER
 router.get(
     "/:id",
     protect,
@@ -278,6 +281,37 @@ router.get(
 
                 return res.status(404).json({
                     error: "Admission not found"
+                });
+
+            }
+
+            const isAdmin = req.user.role === "ADMIN";
+
+            const isAttendingDoctor =
+                req.user.role === "DOCTOR" &&
+                admission.attendingDoctor?.id === req.user.id;
+
+            // A doctor with no attending doctor yet can still view it,
+            // so they can pick it up via the assign-doctor flow.
+            const isUnassignedAdmission =
+                req.user.role === "DOCTOR" &&
+                !admission.attendingDoctor;
+
+            const isDepartmentNurse =
+                req.user.role === "NURSE" &&
+                req.user.departmentId &&
+                req.user.departmentId === admission.bed?.ward?.departmentId;
+
+            const hasAccess =
+                isAdmin ||
+                isAttendingDoctor ||
+                isUnassignedAdmission ||
+                isDepartmentNurse;
+
+            if (!hasAccess) {
+
+                return res.status(403).json({
+                    error: "You do not have access to this admission."
                 });
 
             }
