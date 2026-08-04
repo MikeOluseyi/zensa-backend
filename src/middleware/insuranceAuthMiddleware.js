@@ -29,13 +29,27 @@ export const protectInsurance = async (req, res, next) => {
         id: true,
         role: true,
         isActive: true,
-        insuranceProviderId: true
+        insuranceProviderId: true,
+        lastActiveAt: true,
+        insuranceProvider: {
+          select: {
+            organization: {
+              select: { isActive: true }
+            }
+          }
+        }
       }
 
     });
 
     if (!staff || !staff.isActive) {
       return res.status(401).json({ message: "Account is inactive or no longer exists" });
+    }
+
+    if (staff.insuranceProvider?.organization?.isActive === false) {
+      return res.status(403).json({
+        message: "Access has been suspended for this organization. Contact Zensa support."
+      });
     }
 
     req.user = {
@@ -45,6 +59,18 @@ export const protectInsurance = async (req, res, next) => {
     };
 
     req.insuranceProvider = { id: staff.insuranceProviderId };
+
+    const now = Date.now();
+    const staleThreshold = 2 * 60 * 1000;
+
+    if (!staff.lastActiveAt || now - new Date(staff.lastActiveAt).getTime() > staleThreshold) {
+
+      prisma.insuranceStaff.update({
+        where: { id: staff.id },
+        data: { lastActiveAt: new Date() }
+      }).catch(() => {});
+
+    }
 
     next();
 

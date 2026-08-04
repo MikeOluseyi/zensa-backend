@@ -8,18 +8,19 @@ datasource db {
 }
 
 model Organization {
-  id                 String             @id @default(cuid())
-  name               String
-  code               String             @unique
-  email              String?
-  phone              String?
-  walletMode            WalletMode            @default(ORGANIZATION)
-  walletOverdraftPolicy WalletOverdraftPolicy @default(BLOCK)
+  id                    String                 @id @default(cuid())
+  name                  String
+  code                  String                 @unique
+  email                 String?
+  phone                 String?
+  isActive              Boolean                @default(true)
+  walletMode            WalletMode             @default(ORGANIZATION)
+  walletOverdraftPolicy WalletOverdraftPolicy  @default(BLOCK)
   walletOverdraftCap    Float?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-  hospitals          Hospital[]
-  insuranceProviders InsuranceProvider?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  hospitals             Hospital[]
+  insuranceProviders    InsuranceProvider?
   wallet                Wallet?
 }
 
@@ -131,6 +132,7 @@ model Staff {
   triagedVisits                Visit[]                    @relation("VisitTriagedBy")
   admissionRoundsRecorded AdmissionDailyRound[]
   vitalRecords                 VitalRecord[]
+  lastActiveAt DateTime?
 }
 
 model StaffLoginLog {
@@ -472,6 +474,7 @@ model InsuranceStaff {
   claimMessages           ClaimMessage[]
   notifications           Notification[]
   insuranceProvider       InsuranceProvider      @relation(fields: [insuranceProviderId], references: [id])
+  lastActiveAt DateTime?
 }
 
 model InsurancePlan {

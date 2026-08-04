@@ -193,4 +193,48 @@ router.patch(
   }
 );
 
+// TOGGLE ORGANIZATION ACTIVE STATUS (platform only)
+router.patch(
+  "/platform/:id/status",
+  protectPlatform,
+  authorizePlatformPermission("EDIT_ORGANIZATION"),
+  async (req, res) => {
+
+    try {
+
+      const { isActive } = req.body;
+
+      if (typeof isActive !== "boolean") {
+        return res.status(400).json({ error: "isActive must be true or false" });
+      }
+
+      const existing = await prisma.organization.findUnique({ where: { id: req.params.id } });
+
+      if (!existing) {
+        return res.status(404).json({ error: "Organization not found" });
+      }
+
+      const organization = await prisma.organization.update({
+
+        where: { id: req.params.id },
+
+        data: { isActive },
+
+        include: { wallet: true, hospitals: true }
+
+      });
+
+      res.json(organization);
+
+    } catch (err) {
+
+      console.log(err);
+
+      res.status(500).json({ error: "Failed to update organization status" });
+
+    }
+
+  }
+);
+
 export default router;

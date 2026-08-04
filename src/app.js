@@ -52,6 +52,7 @@ import consultationsRoutes from "./routes/consultationRoutes.js";
 import platformStaffRoutes from "./routes/platformStaffRoutes.js";
 import walletRoutes from "./routes/walletRoutes.js";
 import rbacRoutes from "./routes/rbacRoutes.js";
+import platformMonitoringRoutes from "./routes/platformMonitoringRoutes.js";
 import { protect } from "./middleware/authMiddleware.js";
 import { authorize } from "./middleware/roleMiddleware.js";
 import path from "path";
@@ -112,6 +113,7 @@ app.use("/api/consultations", consultationsRoutes);
 app.use("/api/platform-staff", platformStaffRoutes);
 app.use("/api/wallets", walletRoutes);
 app.use("/api/rbac", rbacRoutes);
+app.use("/api/platform-monitoring", platformMonitoringRoutes);
 
 
 app.get("/", (req, res) => {
