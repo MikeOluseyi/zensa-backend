@@ -312,14 +312,19 @@ const permissions = [
   description: "Record claim payment"
 },
 {
-  name: "Request Authorization",
-  action: "REQUEST_AUTHORIZATION",
-  description: "Create authorization requests"
+  name: "View Authorization Requests",
+  action: "VIEW_AUTH_REQUESTS",
+  description: "View authorization requests"
 },
 {
-  name: "PROCESS_AUTHORIZATION",
-  action: "PROCESS_AUTHORIZATION",
-  description: "Approve or reject authorization requests"
+  name: "Approve Authorization Request",
+  action: "APPROVE_AUTH_REQUESTS",
+  description: "Approve authorization requests"
+},
+{
+  name: "Reject Authorization Request",
+  action: "REJECT_AUTH_REQUESTS",
+  description: "Reject authorization requests"
 },
 {
   name: "Mark Claim Paid",

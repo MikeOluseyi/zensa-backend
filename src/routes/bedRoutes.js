@@ -134,4 +134,45 @@ router.get(
   }
 );
 
+// bedRoutes.js — add
+router.patch(
+  "/:id",
+  protect,
+  authorize("ADMIN"),
+  async (req, res) => {
+    try {
+      const { bedNumber, dailyRate, status } = req.body;
+
+      const bed = await prisma.bed.findFirst({
+        where: { id: req.params.id, ward: { hospitalId: req.user.hospitalId } }
+      });
+
+      if (!bed) {
+        return res.status(404).json({ error: "Bed not found" });
+      }
+
+      if (status === "OCCUPIED" && bed.status !== "OCCUPIED") {
+        return res.status(400).json({
+          error: "Bed status becomes OCCUPIED automatically on admission — it cannot be set manually."
+        });
+      }
+
+      const updated = await prisma.bed.update({
+        where: { id: req.params.id },
+        data: {
+          ...(bedNumber !== undefined && { bedNumber }),
+          ...(dailyRate !== undefined && { dailyRate: dailyRate === "" ? null : Number(dailyRate) }),
+          ...(status !== undefined && bed.status !== "OCCUPIED" && { status })
+        },
+        include: { ward: true }
+      });
+
+      res.json(updated);
+    } catch (err) {
+      console.log(err);
+      res.status(500).json({ error: "Failed to update bed" });
+    }
+  }
+);
+
 export default router;

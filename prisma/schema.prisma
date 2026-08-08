@@ -179,6 +179,7 @@ model CPTCode {
   serviceType String
   services    Service[]
   planCoverageRules InsurancePlanCoverageRule[]
+  authorizationRequests AuthorizationRequest[]
 }
 
 model HospitalService {
@@ -260,6 +261,7 @@ model ICD10Code {
   createdAt      DateTime        @default(now())
   medicalRecords MedicalRecord[]
   planCoverageRules InsurancePlanCoverageRule[]
+  authorizationRequests AuthorizationRequest[]
 }
 
 model Prescription {
@@ -816,20 +818,26 @@ model ClaimMessage {
 }
 
 model AuthorizationRequest {
-  id                         String              @id @default(cuid())
-  patientInsuranceId         String
-  visitId                    String
-  hospitalId                 String
-  insuranceProviderId        String
-  reason                     String
-  requestedAt                DateTime            @default(now())
-  status                     AuthorizationStatus
+  id                     String                @id @default(cuid())
+  patientInsuranceId     String
+  visitId                String?
+  hospitalId             String
+  insuranceProviderId    String
+  cptCodeId              String?
+  icd10Id                String?
+  reason                 String
+  status                 AuthorizationStatus   @default(PENDING)
   approvedByInsuranceStaffId String?
-  approvedByInsuranceStaff   InsuranceStaff?     @relation(fields: [approvedByInsuranceStaffId], references: [id])
-  hospital                   Hospital            @relation(fields: [hospitalId], references: [id])
-  insuranceProvider          InsuranceProvider   @relation(fields: [insuranceProviderId], references: [id])
-  patientInsurance           PatientInsurance    @relation(fields: [patientInsuranceId], references: [id])
-  visit                      Visit               @relation(fields: [visitId], references: [id])
+  rejectionReason        String?
+  requestedAt            DateTime              @default(now())
+
+  patientInsurance       PatientInsurance      @relation(fields: [patientInsuranceId], references: [id])
+  visit                  Visit?                @relation(fields: [visitId], references: [id])
+  hospital                Hospital             @relation(fields: [hospitalId], references: [id])
+  insuranceProvider      InsuranceProvider     @relation(fields: [insuranceProviderId], references: [id])
+  cptCode                CPTCode?              @relation(fields: [cptCodeId], references: [id])
+  icd10                  ICD10Code?            @relation(fields: [icd10Id], references: [id])
+  approvedByInsuranceStaff InsuranceStaff?     @relation(fields: [approvedByInsuranceStaffId], references: [id])
 }
 
 model ClaimPayment {

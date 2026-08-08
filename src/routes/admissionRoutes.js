@@ -15,7 +15,7 @@ import {
     getDoctorPatients
 } from "../utils/admissionServices.js";
 import { ensureDailyRound, getTodayRoundStatus } from "../utils/admissionRoundEngine.js";
-import { postCharge } from "../utils/billing/index.js";
+import { createCharge, postCharge } from "../utils/billing/index.js";
 import { createMedicalRecordService } from "../utils/serviceEngine.js";
 
 const router = express.Router();
@@ -510,6 +510,106 @@ router.patch(
         }
 
     }
+);
+
+router.post(
+  "/:id/discharge-medications",
+  protect,
+  authorize("DOCTOR"),
+  async (req, res) => {
+    try {
+
+      const { inventoryItemId, dosage, frequency, duration, quantity, instructions } = req.body;
+
+      const admission = await prisma.admission.findFirst({
+        where: { id: req.params.id, patient: { hospitalId: req.user.hospitalId } }
+      });
+
+      if (!admission) return res.status(404).json({ error: "Admission not found" });
+
+      const prescription = await prisma.$transaction(async (tx) => {
+
+        let medicalRecordId = admission.medicalRecordId;
+
+        if (!medicalRecordId) {
+          const record = await tx.medicalRecord.create({
+            data: { patientId: admission.patientId, visitId: admission.visitId, doctorId: req.user.id, status: "FINAL" }
+          });
+          medicalRecordId = record.id;
+          await tx.admission.update({ where: { id: admission.id }, data: { medicalRecordId } });
+        }
+
+        const inventoryItem = await tx.inventoryItem.findFirst({
+          where: { id: inventoryItemId, hospitalId: req.user.hospitalId }
+        });
+
+        if (!inventoryItem) throw new Error("MEDICATION_NOT_FOUND");
+        if (inventoryItem.sellingPrice == null) throw new Error(`${inventoryItem.name} has no selling price configured.`);
+
+        const created = await tx.prescription.create({
+          data: {
+            medicalRecordId,
+            visitId: admission.visitId,
+            medication: inventoryItem.name,
+            dosage, frequency, duration,
+            quantity: Number(quantity),
+            saleUnit: inventoryItem.saleUnit,
+            inventoryItemId,
+            instructions,
+            prescribedById: req.user.id
+          }
+        });
+
+        await createCharge({
+          tx,
+          patientId: admission.patientId,
+          visitId: admission.visitId,
+          hospitalId: req.user.hospitalId,
+          hospitalServiceId: null,
+          serviceId: null,
+          quantity: Number(quantity),
+          unitPrice: inventoryItem.sellingPrice,
+          description: `${inventoryItem.name} (Discharge Rx)`,
+          sourceType: "MEDICATION",
+          sourceId: created.id,
+          createdById: req.user.id
+        });
+
+        return created;
+
+      });
+
+      res.json(prescription);
+
+    } catch (err) {
+      console.log(err);
+      const status = err.message === "MEDICATION_NOT_FOUND" ? 404 : 400;
+      res.status(status).json({ error: err.message || "Failed to prescribe discharge medication" });
+    }
+  }
+);
+
+router.get(
+  "/:id/discharge-medications",
+  protect,
+  async (req, res) => {
+    try {
+      const admission = await prisma.admission.findFirst({
+        where: { id: req.params.id, patient: { hospitalId: req.user.hospitalId } }
+      });
+      if (!admission || !admission.medicalRecordId) return res.json([]);
+
+      const prescriptions = await prisma.prescription.findMany({
+        where: { medicalRecordId: admission.medicalRecordId },
+        include: { inventoryItem: true, prescribedBy: { select: { firstName: true, lastName: true } } },
+        orderBy: { createdAt: "desc" }
+      });
+      res.json(prescriptions);
+    } catch (err) {
+      console.log(err);
+      res.status(500).json({ error: "Failed to fetch discharge medications" });
+    }
+  }
 );
 
 export default router;

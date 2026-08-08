@@ -68,9 +68,6 @@ router.post("/assign", protect, async (req, res) => {
         return res.status(400).json({ error: "Selected plan not found or inactive for this provider." });
       }
 
-      // Snapshot the plan's terms onto this enrollment at assignment time —
-      // PatientInsurance keeps its own copy so later plan edits don't
-      // retroactively change what a patient already agreed to.
       resolvedPlanName = plan.name;
       resolvedCoveragePercent = plan.coveragePercent;
       resolvedAuthRequired = plan.authorizationRequired;
@@ -136,5 +133,39 @@ router.get("/patient/:patientId", protect, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch insurance" });
   }
 });
+
+// insuranceRoutes.js — add
+router.get(
+  "/search",
+  protect,
+  async (req, res) => {
+    try {
+      const search = req.query.patient || "";
+
+      const insurances = await prisma.patientInsurance.findMany({
+        where: {
+          patient: {
+            hospitalId: req.user.hospitalId,
+            OR: [
+              { firstName: { contains: search, mode: "insensitive" } },
+              { lastName: { contains: search, mode: "insensitive" } },
+              { patientNumber: { contains: search, mode: "insensitive" } }
+            ]
+          }
+        },
+        include: {
+          patient: { select: { id: true, firstName: true, lastName: true, patientNumber: true } },
+          provider: { include: { organization: true } }
+        },
+        take: 10
+      });
+
+      res.json(insurances);
+    } catch (err) {
+      console.log(err);
+      res.status(500).json({ error: "Failed to search patient insurance" });
+    }
+  }
+);
 
 export default router;
